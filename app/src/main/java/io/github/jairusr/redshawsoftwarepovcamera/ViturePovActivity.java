@@ -18,12 +18,14 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.hardware.display.DisplayManager;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbDeviceConnection;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.Display;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
@@ -54,6 +56,8 @@ public class ViturePovActivity extends Activity implements VitureUsbCamera.Liste
     private Button recordButton;
     private Button retryButton;
     private VitureUsbCamera usbCamera;
+    private DisplayManager displayManager;
+    private volatile GlassesPresentation glassesPresentation;
     private UsbDeviceConnection activeConnection;
     private Thread frameThread;
     private volatile boolean frameLoopRunning;
@@ -71,9 +75,35 @@ public class ViturePovActivity extends Activity implements VitureUsbCamera.Liste
             long elapsed = (android.os.SystemClock.elapsedRealtime() - recordingStartedMs) / 1_000;
             recordingView.setText(getString(R.string.viture_recording_time,
                     elapsed / 60, elapsed % 60));
+            if (glassesPresentation != null) {
+                glassesPresentation.setRecording(recordingView.getText(), true);
+            }
             mainHandler.postDelayed(this, 500);
         }
     };
+
+    private final DisplayManager.DisplayListener displayListener =
+            new DisplayManager.DisplayListener() {
+                @Override
+                public void onDisplayAdded(int displayId) {
+                    Display display = displayManager.getDisplay(displayId);
+                    if (isPresentationDisplay(display)) {
+                        showGlassesPresentation(display);
+                    }
+                }
+
+                @Override
+                public void onDisplayRemoved(int displayId) {
+                    if (glassesPresentation != null
+                            && glassesPresentation.getDisplay().getDisplayId() == displayId) {
+                        dismissGlassesPresentation();
+                    }
+                }
+
+                @Override
+                public void onDisplayChanged(int displayId) {
+                }
+            };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -91,13 +121,13 @@ public class ViturePovActivity extends Activity implements VitureUsbCamera.Liste
         photoButton.setOnClickListener(view -> takePhoto());
         recordButton.setOnClickListener(view -> toggleRecording());
         retryButton.setOnClickListener(view -> {
-            retryButton.setVisibility(View.GONE);
-            status(R.string.viture_searching);
-            if (usbCamera != null) {
-                usbCamera.scan();
-            }
+            retryCamera();
         });
         setCaptureButtonsEnabled(false);
+
+        displayManager = getSystemService(DisplayManager.class);
+        displayManager.registerDisplayListener(displayListener, mainHandler);
+        showAttachedGlassesDisplay();
 
         usbCamera = new VitureUsbCamera(this, this);
         requestInitialPermissions();
@@ -110,6 +140,8 @@ public class ViturePovActivity extends Activity implements VitureUsbCamera.Liste
         if (usbCamera != null) {
             usbCamera.stop();
         }
+        displayManager.unregisterDisplayListener(displayListener);
+        dismissGlassesPresentation();
         super.onDestroy();
     }
 
@@ -166,6 +198,9 @@ public class ViturePovActivity extends Activity implements VitureUsbCamera.Liste
 
         activeConnection = connection;
         retryButton.setVisibility(View.GONE);
+        if (glassesPresentation != null) {
+            glassesPresentation.setRetryVisible(false);
+        }
         setCaptureButtonsEnabled(true);
         status(R.string.viture_waiting_for_frames);
         startFrameLoop();
@@ -236,13 +271,24 @@ public class ViturePovActivity extends Activity implements VitureUsbCamera.Liste
                     // Use the local monotonic clock so A/V timestamps share one timebase.
                     activeRecorder.submitVideoFrame(reusableBitmap, System.nanoTime());
                 }
-                drawPreview(reusableBitmap);
+                GlassesPresentation presentation = glassesPresentation;
+                if (presentation != null) {
+                    List<SurfaceView> glassesPreviews = presentation.getPreviewViews();
+                    for (SurfaceView glassesPreview : glassesPreviews) {
+                        drawPreview(reusableBitmap, glassesPreview);
+                    }
+                    if (glassesPreviews.isEmpty()) {
+                        drawPreview(reusableBitmap, previewView);
+                    }
+                } else {
+                    drawPreview(reusableBitmap, previewView);
+                }
 
                 ++frames;
                 long now = android.os.SystemClock.elapsedRealtime();
                 if (now - fpsStarted >= 1_000) {
                     final int fps = Math.round(frames * 1_000f / (now - fpsStarted));
-                    mainHandler.post(() -> statusView.setText(
+                    mainHandler.post(() -> setStatusText(
                             getString(R.string.viture_stream_status, fps)));
                     fpsStarted = now;
                     frames = 0;
@@ -255,11 +301,13 @@ public class ViturePovActivity extends Activity implements VitureUsbCamera.Liste
         frameThread.start();
     }
 
-    private void drawPreview(Bitmap bitmap) {
-        SurfaceHolder holder = previewView.getHolder();
+    private void drawPreview(Bitmap bitmap, SurfaceView surfaceView) {
+        SurfaceHolder holder = surfaceView.getHolder();
         Canvas canvas = null;
         try {
-            canvas = holder.lockCanvas();
+            canvas = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                    ? holder.lockHardwareCanvas()
+                    : holder.lockCanvas();
             if (canvas == null) {
                 return;
             }
@@ -274,9 +322,15 @@ public class ViturePovActivity extends Activity implements VitureUsbCamera.Liste
                     (canvas.getWidth() + width) / 2f,
                     (canvas.getHeight() + height) / 2f);
             canvas.drawBitmap(bitmap, null, destination, previewPaint);
+        } catch (IllegalArgumentException | IllegalStateException ignored) {
+            // The display or its SurfaceView may have been detached between frames.
         } finally {
             if (canvas != null) {
-                holder.unlockCanvasAndPost(canvas);
+                try {
+                    holder.unlockCanvasAndPost(canvas);
+                } catch (IllegalArgumentException | IllegalStateException ignored) {
+                    // The presentation disappeared while this frame was being posted.
+                }
             }
         }
     }
@@ -329,6 +383,10 @@ public class ViturePovActivity extends Activity implements VitureUsbCamera.Liste
                 recordingStartedMs = android.os.SystemClock.elapsedRealtime();
                 recordButton.setText(R.string.viture_stop_recording);
                 recordingView.setVisibility(View.VISIBLE);
+                if (glassesPresentation != null) {
+                    glassesPresentation.setRecording(
+                            getString(R.string.viture_recording_initial), true);
+                }
                 mainHandler.post(recordingTimer);
             } catch (IOException | RuntimeException exception) {
                 if (videoTarget != null) {
@@ -355,6 +413,10 @@ public class ViturePovActivity extends Activity implements VitureUsbCamera.Liste
         mainHandler.removeCallbacks(recordingTimer);
         recordButton.setText(R.string.viture_start_recording);
         recordingView.setVisibility(View.GONE);
+        if (glassesPresentation != null) {
+            glassesPresentation.setRecording(
+                    getString(R.string.viture_recording_initial), false);
+        }
         new Thread(() -> {
             recorderToStop.stop();
             if (targetToFinish != null) {
@@ -396,14 +458,99 @@ public class ViturePovActivity extends Activity implements VitureUsbCamera.Liste
     private void setCaptureButtonsEnabled(boolean enabled) {
         photoButton.setEnabled(enabled);
         recordButton.setEnabled(enabled);
+        if (glassesPresentation != null) {
+            glassesPresentation.setCaptureEnabled(enabled);
+        }
     }
 
     private void status(int stringId) {
-        statusView.setText(stringId);
+        setStatusText(getString(stringId));
     }
 
     private void showError(String message) {
-        statusView.setText(message);
+        setStatusText(message);
         retryButton.setVisibility(View.VISIBLE);
+        if (glassesPresentation != null) {
+            glassesPresentation.setRetryVisible(true);
+        }
+    }
+
+    private void retryCamera() {
+        retryButton.setVisibility(View.GONE);
+        if (glassesPresentation != null) {
+            glassesPresentation.setRetryVisible(false);
+        }
+        status(R.string.viture_searching);
+        if (usbCamera != null) {
+            usbCamera.scan();
+        }
+    }
+
+    private void setStatusText(CharSequence status) {
+        statusView.setText(status);
+        if (glassesPresentation != null) {
+            glassesPresentation.setStatus(status);
+        }
+    }
+
+    private void showAttachedGlassesDisplay() {
+        for (Display display : displayManager.getDisplays(
+                DisplayManager.DISPLAY_CATEGORY_PRESENTATION)) {
+            if (isPresentationDisplay(display)) {
+                showGlassesPresentation(display);
+                return;
+            }
+        }
+    }
+
+    private boolean isPresentationDisplay(Display display) {
+        if (display == null || display.getDisplayId() == Display.DEFAULT_DISPLAY) {
+            return false;
+        }
+        for (Display presentationDisplay : displayManager.getDisplays(
+                DisplayManager.DISPLAY_CATEGORY_PRESENTATION)) {
+            if (presentationDisplay.getDisplayId() == display.getDisplayId()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void showGlassesPresentation(Display display) {
+        if (glassesPresentation != null
+                && glassesPresentation.getDisplay().getDisplayId() == display.getDisplayId()) {
+            return;
+        }
+        dismissGlassesPresentation();
+        GlassesPresentation presentation = new GlassesPresentation(this, display,
+                new GlassesPresentation.Listener() {
+                    @Override
+                    public void onTakePhoto() {
+                        takePhoto();
+                    }
+
+                    @Override
+                    public void onToggleRecording() {
+                        toggleRecording();
+                    }
+
+                    @Override
+                    public void onRetry() {
+                        retryCamera();
+                    }
+                });
+        presentation.show();
+        presentation.setStatus(statusView.getText());
+        presentation.setCaptureEnabled(photoButton.isEnabled());
+        presentation.setRetryVisible(retryButton.getVisibility() == View.VISIBLE);
+        presentation.setRecording(recordingView.getText(), recorder != null);
+        glassesPresentation = presentation;
+    }
+
+    private void dismissGlassesPresentation() {
+        if (glassesPresentation != null) {
+            glassesPresentation.dismiss();
+            glassesPresentation = null;
+        }
     }
 }
