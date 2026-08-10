@@ -6,7 +6,7 @@
     android:background="#2A3038"
     tools:ignore="Overdraw">
 
-    <SurfaceView
+    <TextureView
         android:id="@+id/viture_preview"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />

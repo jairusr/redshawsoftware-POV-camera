@@ -9,6 +9,7 @@ A focused native Android application for hands-free POV photos and videos from c
 - GPU-accelerated H.264 MP4 recording;
 - mono AAC audio at the microphone's native rate, probing a detected USB microphone and automatically falling back to the Android host microphone if the USB stream is silent;
 - USB attach, permission, disconnect, and reconnect handling;
+- a compositor-friendly preview that remains inside SpaceWalker's managed Android display;
 - scoped-storage output under `DCIM/RedshawSoftwarePOVCamera`.
 
 The VITURE camera stream has a fixed 1920×1080/30 fps MJPEG format. This application deliberately provides only the controls supported by that stream: photo and video capture.
@@ -49,16 +50,31 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 Wireless ADB works normally. On first launch, approve the Android camera and USB permissions. The microphone permission is requested when recording begins.
 
+The app intentionally does not register as an automatic USB-launch handler. Open it from SpaceWalker after connecting the glasses; reconnecting the camera will not unexpectedly replace the current application.
+
 The open-source project also compiles without `libglasses.so`, but the resulting APK cannot open the glasses camera until the SDK is installed and the APK rebuilt.
+
+## SpaceWalker operation
+
+Use the Neckband's **SpaceWalker mode**, not Android Original Mode. In SpaceWalker's Quick Settings:
+
+- enable **Smooth Follow** so the camera screen follows your head instead of remaining spatially anchored;
+- enable **Hand Gestures** (or long-press the Neckband Settings button) for the SpaceWalker cursor and pinch-to-click controls;
+- double-press the Settings button to recenter if required.
+
+The application is an ordinary Android activity rendered into SpaceWalker's managed virtual display. It does not create an Android `Presentation` on the physical HDMI glasses display. A direct presentation can provide a head-locked image, but it bypasses SpaceWalker's composition and therefore removes its hand-gesture cursor and input routing.
+
+Camera streaming stops whenever the activity leaves the foreground, preventing a background preview from consuming resources needed by SpaceWalker's tracking compositor.
 
 ## Hardware validation
 
 The standalone build has been exercised over wireless ADB on a VITURE Neckband Pro (V1231, Android 13):
 
 - live preview and JPEG photos: upright 1920×1080 output;
-- video: 219 H.264 frames over 7.398 seconds (29.60 fps average);
-- audio: 16 kHz mono AAC with a valid non-zero waveform;
+- video: 1920×1080 H.264 at 29.65 fps over a 5.47-second verification capture;
+- audio: 16 kHz mono AAC with a valid non-zero waveform (−17.3 dB peak in the verification capture);
 - microphone routing: the exposed `USB-Audio - VITURE Microphone` returned digital silence on this device, so the preflight automatically selected the working `V1231` microphone before official A/V timestamps began.
+- SpaceWalker integration: the activity was confined to a launcher-owned 1920×1080 virtual display, with no application window or surface on the physical 3840×1200 HDMI display; Android focused pointer input on the application display.
 
 Other VITURE hardware may provide a working USB microphone; when a non-zero USB signal is detected, the application retains that route.
 
