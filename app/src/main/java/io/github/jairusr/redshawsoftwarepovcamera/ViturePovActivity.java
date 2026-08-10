@@ -86,10 +86,6 @@ public class ViturePovActivity extends Activity implements VitureUsbCamera.Liste
             new DisplayManager.DisplayListener() {
                 @Override
                 public void onDisplayAdded(int displayId) {
-                    Display display = displayManager.getDisplay(displayId);
-                    if (activeConnection != null && isPresentationDisplay(display)) {
-                        showGlassesPresentation(display);
-                    }
                 }
 
                 @Override
@@ -196,7 +192,6 @@ public class ViturePovActivity extends Activity implements VitureUsbCamera.Liste
         }
 
         activeConnection = connection;
-        showAttachedGlassesDisplay();
         retryButton.setVisibility(View.GONE);
         if (glassesPresentation != null) {
             glassesPresentation.setRetryVisible(false);

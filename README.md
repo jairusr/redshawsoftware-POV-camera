@@ -9,8 +9,6 @@ A focused native Android application for hands-free POV photos and videos from c
 - GPU-accelerated H.264 MP4 recording;
 - mono AAC audio at the microphone's native rate, probing a detected USB microphone and automatically falling back to the Android host microphone if the USB stream is silent;
 - USB attach, permission, disconnect, and reconnect handling;
-- a native Android presentation rendered directly to the glasses display, with
-  side-by-side duplication on 3840×1200 displays so the POV view follows the wearer;
 - scoped-storage output under `DCIM/RedshawSoftwarePOVCamera`.
 
 The VITURE camera stream has a fixed 1920×1080/30 fps MJPEG format. This application deliberately provides only the controls supported by that stream: photo and video capture.
