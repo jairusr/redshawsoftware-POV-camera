@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000"
+    android:background="#2A3038"
     tools:ignore="Overdraw">
 
     <SurfaceView
@@ -17,7 +17,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="top|start"
         android:layout_margin="16dp"
-        android:background="#99000000"
+        android:background="#804A515C"
         android:paddingHorizontal="12dp"
         android:paddingVertical="8dp"
         android:text="@string/viture_searching"
@@ -30,7 +30,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="top|end"
         android:layout_margin="16dp"
-        android:background="#CCB00020"
+        android:background="#B3C62845"
         android:paddingHorizontal="12dp"
         android:paddingVertical="8dp"
         android:text="@string/viture_recording_initial"
@@ -52,7 +52,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|center_horizontal"
         android:layout_marginBottom="24dp"
-        android:background="#99000000"
+        android:background="#804A515C"
         android:gravity="center"
         android:orientation="horizontal"
         android:padding="8dp"

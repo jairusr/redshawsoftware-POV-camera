@@ -16,7 +16,6 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.hardware.usb.UsbDevice;
@@ -264,8 +263,7 @@ public class ViturePovActivity extends Activity implements VitureUsbCamera.Liste
             if (canvas == null) {
                 return;
             }
-            canvas.drawColor(Color.BLACK);
-            float scale = Math.min(
+            float scale = Math.max(
                     canvas.getWidth() / (float) bitmap.getWidth(),
                     canvas.getHeight() / (float) bitmap.getHeight());
             float width = bitmap.getWidth() * scale;
