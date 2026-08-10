@@ -87,7 +87,7 @@ public class ViturePovActivity extends Activity implements VitureUsbCamera.Liste
                 @Override
                 public void onDisplayAdded(int displayId) {
                     Display display = displayManager.getDisplay(displayId);
-                    if (isPresentationDisplay(display)) {
+                    if (activeConnection != null && isPresentationDisplay(display)) {
                         showGlassesPresentation(display);
                     }
                 }
@@ -127,7 +127,6 @@ public class ViturePovActivity extends Activity implements VitureUsbCamera.Liste
 
         displayManager = getSystemService(DisplayManager.class);
         displayManager.registerDisplayListener(displayListener, mainHandler);
-        showAttachedGlassesDisplay();
 
         usbCamera = new VitureUsbCamera(this, this);
         requestInitialPermissions();
@@ -197,6 +196,7 @@ public class ViturePovActivity extends Activity implements VitureUsbCamera.Liste
         }
 
         activeConnection = connection;
+        showAttachedGlassesDisplay();
         retryButton.setVisibility(View.GONE);
         if (glassesPresentation != null) {
             glassesPresentation.setRetryVisible(false);
@@ -208,12 +208,14 @@ public class ViturePovActivity extends Activity implements VitureUsbCamera.Liste
 
     @Override
     public void onCameraDetached() {
+        dismissGlassesPresentation();
         stopCameraStream();
         showError(getString(R.string.viture_camera_detached));
     }
 
     @Override
     public void onCameraError(String message) {
+        dismissGlassesPresentation();
         showError(message);
     }
 
@@ -548,9 +550,10 @@ public class ViturePovActivity extends Activity implements VitureUsbCamera.Liste
     }
 
     private void dismissGlassesPresentation() {
-        if (glassesPresentation != null) {
-            glassesPresentation.dismiss();
-            glassesPresentation = null;
+        GlassesPresentation presentation = glassesPresentation;
+        glassesPresentation = null;
+        if (presentation != null) {
+            presentation.dismiss();
         }
     }
 }
