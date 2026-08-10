@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Redshaw Software POV Camera</string>
+    <string name="viture_searching" translatable="false">Looking for the VITURE POV camera…</string>
+    <string name="viture_retry" translatable="false">Scan again</string>
+    <string name="viture_take_photo" translatable="false">Photo</string>
+    <string name="viture_start_recording" translatable="false">Record POV</string>
+    <string name="viture_stop_recording" translatable="false">Stop</string>
+    <string name="viture_recording_initial" translatable="false">● 00:00</string>
+    <string name="viture_recording_time" translatable="false">● %1$02d:%2$02d</string>
+    <string name="viture_stream_status" translatable="false">VITURE · 1920×1080 · %1$d fps</string>
+    <string name="viture_waiting_for_frames" translatable="false">VITURE camera connected · waiting for video…</string>
+    <string name="viture_sdk_missing" translatable="false">VITURE SDK not installed. Run scripts/install-viture-sdk.sh, then rebuild.</string>
+    <string name="viture_unsupported_camera" translatable="false">This USB device is not a supported VITURE POV camera.</string>
+    <string name="viture_open_failed" translatable="false">The VITURE SDK could not open the camera.</string>
+    <string name="viture_start_failed" translatable="false">The VITURE camera stream failed to start (SDK error %1$d).</string>
+    <string name="viture_camera_detached" translatable="false">VITURE camera disconnected.</string>
+    <string name="viture_camera_permission_required" translatable="false">Camera permission is required for VITURE UVC access.</string>
+    <string name="viture_microphone_permission_required" translatable="false">Microphone permission is required for video audio.</string>
+    <string name="viture_no_frame" translatable="false">No camera frame is available yet.</string>
+    <string name="viture_photo_saved" translatable="false">Saved %1$s</string>
+    <string name="viture_video_saved" translatable="false">Saved %1$s with microphone audio</string>
+    <string name="viture_record_start_failed" translatable="false">Could not start recording: %1$s</string>
+</resources>

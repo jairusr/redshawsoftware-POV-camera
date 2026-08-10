@@ -1,0 +1,18 @@
+.DS_Store
+.gradle/
+.idea/
+*.iml
+**/build/
+/app/.cxx/
+local.properties
+
+# Local-only source used for design comparison. Never publish this directory.
+/reference/
+
+# VITURE's proprietary Android library is installed locally by the SDK script.
+/app/src/main/jniLibs/
+
+*.apk
+*.aab
+*.jks
+*.keystore
